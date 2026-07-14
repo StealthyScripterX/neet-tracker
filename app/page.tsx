@@ -272,7 +272,7 @@ export default function IntegratedTracker() {
             <ShieldAlert className="text-red-500 shrink-0 mt-0.5 animate-pulse" size={20} />
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-red-400">INTEGRITY IS EVERYTHING</h4>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-1 leading-relaxed">Iss tracker mein hamesha khud se <span className="text-red-400 font-semibold">100% honest</span> rehna. Galat tracking se rank nahi, sirf dilasa milega. Jitna padha hai, wahi mark karna.</p>
+              <p className="text-xs sm:text-sm text-zinc-400 mt-1 leading-relaxed">Iss tracker mein hamesha khud se <span className="text-red-400 font-semibold">100% honest</span> rehna. Galat tracking se rank nahi, Stay honest to yourself . Jitna padha hai, wahi mark karna.</p>
             </div>
           </div>
         </div>
