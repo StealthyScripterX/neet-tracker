@@ -19,7 +19,10 @@ import {
   Eye,
   LogIn,
   Share2,
-  Copy
+  Copy,
+  X,
+  Trophy,
+  Bell
 } from "lucide-react";
 
 const quotes = [
@@ -46,14 +49,13 @@ const quotes = [
   { text: "Mujhe aapke hard work par pura bharosa hai, din raat ek kar do.", author: "~ARCHIT" }
 ];
 
-// Strictly Indulged 8-Hour Daily Timeline with Specific Class Routines
 const getDefaultTasks = (isCollegeDay: boolean) => [
   { id: 1, time: "08:30 AM - 09:30 AM", title: "Morning Flow & Light Concept Reading", done: false },
   { id: 2, time: "10:00 AM - 11:00 AM", title: isCollegeDay ? "🏛️ BDS College Class" : "🔬 High-Yield NEET Revision Study", done: false, locked: isCollegeDay },
   { id: 3, time: "11:30 AM - 01:30 PM", title: "🧬 Unacademy Recorded Lecture: Biology", done: false },
   { id: 4, time: "01:30 PM - 03:30 PM", title: "🥗 Lunch, Long Break & Power Nap (Relax Mode)", done: false },
   { id: 5, time: "03:30 PM - 05:30 PM", title: "⚛️ Unacademy Recorded Lecture: Physics", done: false },
-  { id: 6, time: "05:30 PM - 07:00 PM", title: "☕ Extended Break & Evening Refreshment", done: false },
+  { id: 6, time: "05:30 PM - 07:00 PM", title: "☕ Extended Chai Break & Evening Refreshment", done: false },
   { id: 7, time: "07:00 PM - 08:30 PM", title: "🧪 Unacademy Recorded Lecture: Chemistry", done: false },
   { id: 8, time: "08:30 PM - 10:00 PM", title: "🍽️ Dinner & Unwind Free Time", done: false },
   { id: 9, time: "10:00 PM - 11:30 PM", title: "📝 NEET MCQ Practice & Critical BDS Review", done: false },
@@ -67,6 +69,9 @@ export default function IntegratedTracker() {
   const [inputUsername, setInputUsername] = useState("");
   const [inputTarget, setInputTarget] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [showBigCelebration, setShowBigCelebration] = useState(false);
+  const [isLateNight, setIsLateNight] = useState(false);
 
   const [viewDate, setViewDate] = useState<Date>(new Date());
   const [currentQuote, setCurrentQuote] = useState({ text: "", author: "" });
@@ -88,7 +93,19 @@ export default function IntegratedTracker() {
   useEffect(() => {
     triggerRandomQuote();
     const interval = setInterval(() => triggerRandomQuote(), 25000);
-    return () => clearInterval(interval);
+    
+    // Check if it's past 9:00 PM for conditional motivation banners
+    const hours = new Date().getHours();
+    if (hours >= 21) setIsLateNight(true);
+
+    // Show temporary Night Review Notification Toast on load
+    setShowNotification(true);
+    const timer = setTimeout(() => setShowNotification(false), 7000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -98,14 +115,15 @@ export default function IntegratedTracker() {
     
     if (sharedData && doctorUser) {
       try {
-        const decoded = JSON.parse(atob(sharedData));
+        // Unicode safe decode base64 string
+        const decoded = JSON.parse(decodeURIComponent(atob(sharedData)));
         setTasks(decoded.tasks);
         setWaterCount(decoded.waterCount);
         setHabits(decoded.habits);
         setSession({ name: "Archit", username: "archit_viewer", role: "viewer", targetDoctor: doctorUser });
         return;
       } catch (e) {
-        console.error("Sync link error");
+        console.error("Sync URL dynamic parsing error");
       }
     }
 
@@ -122,7 +140,7 @@ export default function IntegratedTracker() {
     setCurrentDateString(viewDate.toLocaleDateString("en-IN", { day: 'numeric', month: 'long', year: 'numeric' }));
 
     const dataScopeKey = session.role === "surgeon" ? session.username : session.targetDoctor || "default";
-    const backupData = localStorage.getItem(`history_scope_v5_${dataScopeKey}`);
+    const backupData = localStorage.getItem(`history_scope_v6_${dataScopeKey}`);
     let history = backupData ? JSON.parse(backupData) : {};
 
     if (history[selectedDateKey]) {
@@ -140,11 +158,11 @@ export default function IntegratedTracker() {
   const saveToDatabaseSimulation = (t = tasks, w = waterCount, h = habits) => {
     if (isReadOnly || !session) return;
     const dataScopeKey = session.username;
-    const backupData = localStorage.getItem(`history_scope_v5_${dataScopeKey}`);
+    const backupData = localStorage.getItem(`history_scope_v6_${dataScopeKey}`);
     let history = backupData ? JSON.parse(backupData) : {};
 
     history[selectedDateKey] = { tasks: t, waterCount: w, habits: h };
-    localStorage.setItem(`history_scope_v5_${dataScopeKey}`, JSON.stringify(history));
+    localStorage.setItem(`history_scope_v6_${dataScopeKey}`, JSON.stringify(history));
   };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
@@ -162,10 +180,11 @@ export default function IntegratedTracker() {
     }
   };
 
+  // Unicode safe Base64 URL Generator (Fixes standard emojis crash)
   const generateSyncLink = () => {
     if (!session) return;
     const packageData = { tasks, waterCount, habits };
-    const stringified = btoa(JSON.stringify(packageData));
+    const stringified = btoa(encodeURIComponent(JSON.stringify(packageData)));
     const generatedUrl = `${window.location.origin}${window.location.pathname}?doctor=${session.username}&data=${stringified}`;
     
     navigator.clipboard.writeText(generatedUrl);
@@ -179,12 +198,23 @@ export default function IntegratedTracker() {
     window.location.href = window.location.origin + window.location.pathname;
   };
 
+  const totalItems = tasks.length;
+  const completedItems = tasks.filter(t => t.done).length;
+  const taskProgress = Math.round((completedItems / totalItems) * 100) || 0;
+  const itemsLeft = totalItems - completedItems;
+
   const toggleTask = (id: number) => {
     if (isReadOnly) return;
     const updated = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
     setTasks(updated);
     saveToDatabaseSimulation(updated, waterCount, habits);
     triggerRandomQuote();
+
+    // Trigger big modal layout calculation if 100% hits right now
+    const nextCompleted = updated.filter(t => t.done).length;
+    if (nextCompleted === totalItems) {
+      setShowBigCelebration(true);
+    }
   };
 
   const toggleHabit = (key: 'sleep' | 'meditation') => {
@@ -192,7 +222,7 @@ export default function IntegratedTracker() {
     const updated = { ...habits, [key]: !habits[key] };
     setHabits(updated);
     saveToDatabaseSimulation(tasks, waterCount, updated);
-    triggerRandomQuote();
+    triggerRandomQuote(); 
   };
 
   const handleWater = (val: number) => {
@@ -200,12 +230,9 @@ export default function IntegratedTracker() {
     const newCount = Math.max(0, Math.min(4, waterCount + val));
     setWaterCount(newCount);
     saveToDatabaseSimulation(tasks, newCount, habits);
-    triggerRandomQuote();
+    triggerRandomQuote(); 
   };
 
-  const totalItems = tasks.length;
-  const completedItems = tasks.filter(t => t.done).length;
-  const taskProgress = Math.round((completedItems / totalItems) * 100) || 0;
   const dayNameDisplay = viewDate.toLocaleDateString("en-IN", { weekday: 'long' });
 
   if (!session) {
@@ -245,7 +272,32 @@ export default function IntegratedTracker() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans pb-24">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans pb-24 relative">
+      
+      {/* Smooth Sliding Notification Toast on mount */}
+      {showNotification && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-sm bg-zinc-950 border border-pink-500/30 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-fade-in animate-bounce">
+          <div className="flex items-center gap-2.5">
+            <Bell size={18} className="text-pink-500 shrink-0" />
+            <p className="text-xs sm:text-sm font-medium text-zinc-200">Raat me tracker review karne ki adat banao daily ka daily 🌙</p>
+          </div>
+          <button onClick={() => setShowNotification(false)} className="text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+        </div>
+      )}
+
+      {/* BIG MOTIVATION POPUP modal (Triggered on 100% completion) */}
+      {showBigCelebration && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-pink-500/40 p-8 rounded-3xl max-w-sm w-full text-center relative overflow-hidden shadow-2xl">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 to-violet-500" />
+            <Trophy className="text-yellow-500 mx-auto mb-4 animate-pulse" size={56} />
+            <h2 className="text-3xl font-extrabold tracking-wider bg-gradient-to-r from-pink-400 to-violet-400 bg-clip-text text-transparent">TARGET DONE! 🎉</h2>
+            <p className="text-sm text-zinc-400 mt-3 leading-relaxed">Aapne aaj ka poora flow perfection ke sath khatam kiya hai. Stethoscope ab door nahi hai, Doctor! Archit is incredibly proud of you. ❤️</p>
+            <button onClick={() => setShowBigCelebration(false)} className="mt-6 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 font-bold text-xs px-6 py-2.5 rounded-xl transition-all">Close Dashboard</button>
+          </div>
+        </div>
+      )}
+
       {/* Top Navbar */}
       <nav className="border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-md sticky top-0 z-50 px-4 py-4">
         <div className="max-w-2xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -266,16 +318,28 @@ export default function IntegratedTracker() {
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 mt-8 space-y-8">
-        {/* HONESTY ALERTS */}
+        
+        {/* HONESTY ALERTS BANNER (Cringe Text completely updated) */}
         <div className="border border-red-900/30 bg-gradient-to-r from-red-950/20 via-zinc-950 to-red-950/20 rounded-2xl p-4 shadow-xl">
           <div className="flex items-start gap-3">
-            <ShieldAlert className="text-red-500 shrink-0 mt-0.5 animate-pulse" size={20} />
+            <ShieldAlert className="text-red-500 shrink-0 mt-0.5" size={20} />
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-red-400">INTEGRITY IS EVERYTHING</h4>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-1 leading-relaxed">Iss tracker mein hamesha khud se <span className="text-red-400 font-semibold">100% honest</span> rehna. Galat tracking se rank nahi, Stay honest to yourself . Jitna padha hai, wahi mark karna.</p>
+              <p className="text-xs sm:text-sm text-zinc-400 mt-1 leading-relaxed">
+                Iss tracker mein hamesha khud se <span className="text-red-400 font-semibold">100% honest</span> rehna. Galat tracking se rank nahi, <span className="text-zinc-200 font-medium">Stay honest to yourself.</span> Jitna padha hai, wahi mark karna.
+              </p>
             </div>
           </div>
         </div>
+
+        {/* Late Night Remaining Tasks Motivational Banner */}
+        {isLateNight && isToday && itemsLeft > 0 && itemsLeft <= 2 && (
+          <div className="border border-amber-500/20 bg-gradient-to-r from-amber-950/20 via-zinc-950 to-amber-950/20 rounded-2xl p-4 shadow-md border-l-4 border-l-amber-500 animate-pulse">
+            <p className="text-xs sm:text-sm text-amber-400/90 font-medium italic">
+              Koi ni kal complete krlena, rest up now... Kal pura karna hai! 💪✨
+            </p>
+          </div>
+        )}
 
         {/* Dynamic Rotation Quote Block */}
         <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 p-8 shadow-2xl transition-all duration-500">
